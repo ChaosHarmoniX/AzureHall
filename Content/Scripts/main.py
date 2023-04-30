@@ -43,8 +43,8 @@ class MainComponent:
         预处理: 绑定UI材质
         '''
         # 纹理的宽、高、DPI
-        width = 1024
-        height = 1024
+        width = 720
+        height = 1280
         # 创建UE纹理
         self.texture = ue.create_transient_texture(width, height, EPixelFormat.PF_R8G8B8A8)
         
@@ -84,14 +84,14 @@ class MainComponent:
         
         light = np.load('E:/MyProject/UE/Python/VirtualStudio/BodyRelight/datas/LIGHT/env_sh.npy')[0]
         frame = np.asarray(frame)
-        print(frame.shape)
         
         mask = self.matte.matte(frame)
         relighted_image = self.relight.relight(frame, mask, light, need_normalize = True)
         # relighted_image = relighted_image.astype(np.uint8)
         
         # TODO: 将重打光后的图片传给UE(图片)
-        self.texture.texture_set_data(np.ascontiguousarray(relighted_image))
+        relighted_image_contiguous = np.ascontiguousarray(relighted_image/255)
+        self.texture.texture_set_data(relighted_image_contiguous)
         return
         
     # 设置关键点

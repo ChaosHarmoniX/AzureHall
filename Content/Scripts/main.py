@@ -1,7 +1,6 @@
 import os
 import sys
 path = "E:/MyProject/UE/Python/VirtualStudio/"
-# sys.path.insert(0, path + 'VirtualStudio/')
 sys.path.insert(0, path)
 from lib.options import * # TODO: 改了lib名字
 from MODNet.app.matte import Matte
@@ -9,54 +8,95 @@ from BodyRelight.app.relight import Relight
 import MHFormer.app.gen as gen
 import numpy as np
 
-
 import unreal_engine as ue
 from unreal_engine.enums import EPixelFormat
 
+import matplotlib
+# 让matplotlib强制在引擎内显示, 而不是在python后台显示
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 class MainComponent:
-    def begin_play(self):
-        # 绑定每一帧的回调函数
-        Owner = self.uobject.get_owner()
-        Owner.bind_event("OnMainTask", self.main_task)
-        
-        # 预处理: 配置
-        self.opt = Options().parse() # 一些配置，比如batch_size，gpu_id等
-        ue.print_string("in python: begin_play--opt")
-        print(self.opt)
+    def begin_play(self):        
+        '''
+        预处理: 配置
+        '''
+        # self.opt = Options().parse() # 一些配置，比如batch_size，gpu_id等
+        # ue.print_string("in python: begin_play--opt")
+        # print(self.opt)
         
         '''
         预处理: 关键点
         '''
-        self.sc = gen.MHFormer()
-        ue.print_string("in python: begin_play--MHFormer")
+        # self.sc = gen.MHFormer()
+        # ue.print_string("in python: begin_play--MHFormer")
         
         '''
         预处理: 重打光
         '''
-        self.relight = Relight(self.opt)
-        ue.print_string("in python: begin_play--Relight")
-        self.matte = Matte(self.opt)
-        ue.print_string("in python: begin_play--Matte")
+        # self.relight = Relight(self.opt)
+        # ue.print_string("in python: begin_play--Relight")
+        # self.matte = Matte(self.opt)
+        # ue.print_string("in python: begin_play--Matte")
         
         
         '''
         预处理: 绑定UI材质
         '''
         # 纹理的宽、高、DPI
-        width = 720
-        height = 1280
+        self.width = 1024
+        self.height = 1024
+        dpi = 72.0
+        
         # 创建UE纹理
-        self.texture = ue.create_transient_texture(width, height, EPixelFormat.PF_R8G8B8A8)
+        self.texture = ue.create_transient_texture(self.width, self.height, EPixelFormat.PF_R8G8B8A8)
+        
+        # 创建绘pyplot绘图工具
+        self.fig = plt.figure(0)
+        self.fig.set_dpi(dpi)
+        self.fig.set_figwidth(self.width/dpi)
+        self.fig.set_figheight(self.height/dpi)
         
         # 获取拥有该组件的Actor
         Owner = self.uobject.get_owner()
         
         # 得到Owner的Plane组件, 修改它的材质, 设置材质参数"Graph"
         Owner.M_UI.set_material_texture_parameter('Graph', self.texture)
+        
+        # 绑定回调函数
+        Owner.bind_event("OnMainTask", self.main_task)
         return
         
         
     def main_task(self):
+        
+        image_shape = (720, 1280, 4,)
+        image = np.zeros(image_shape)
+        image[:,:,0] = 1
+        image[:,:,3] = 0.2
+        # self.texture.texture_set_data(image)
+        # return
+        
+        # 清除原有图片
+        plt.clf()
+        # 省略坐标轴、刻度线
+        plt.axis('off')
+        plt.xticks([])
+        plt.yticks([])
+        plt.subplots_adjust(top=1,bottom=0,left=0,right=1,hspace=0,wspace=0)
+        # self.fig.set_facecolor(None)
+        # self.fig.set_alpha(0)
+        # self.fig.figimage(image)
+        # 根据数组绘制图片
+        plt.imshow(image)
+        
+        # 更新画布上的图片
+        self.fig.canvas.draw()
+        # 将图片传给UE
+        img = self.fig.canvas.buffer_rgba()
+        self.texture.texture_set_data(img)
+        return
+    
         # 从图片流中读取一帧
         ret, frame = self.sc.get_img()
         
@@ -68,9 +108,8 @@ class MainComponent:
         关键点
         '''
         # TODO: 根据关键点, 设置角色位置
-        key_points = self.sc.get_3D_kpt()
-        self.set_key_point(key_points)
-    
+        # key_points = self.sc.get_3D_kpt()
+        # self.set_key_point(key_points)
     
         '''
         重打光
@@ -87,11 +126,30 @@ class MainComponent:
         
         mask = self.matte.matte(frame)
         relighted_image = self.relight.relight(frame, mask, light, need_normalize = True)
-        # relighted_image = relighted_image.astype(np.uint8)
+        relighted_image = relighted_image.astype(np.uint8)
         
-        # TODO: 将重打光后的图片传给UE(图片)
-        relighted_image_contiguous = np.ascontiguousarray(relighted_image/255)
-        self.texture.texture_set_data(relighted_image_contiguous)
+        # 将重打光后的图像转化为PF_R8G8B8A8格式
+        image_shape = mask.shape + (4,)
+        image = np.zeros(image_shape)
+        image[:,:,0] = relighted_image[:,:,0] / 255.0
+        image[:,:,1] = relighted_image[:,:,1] / 255.0
+        image[:,:,2] = relighted_image[:,:,2] / 255.0
+        image[:,:,3] = mask / 255.0
+        
+        # 清除原有图片
+        plt.clf()
+        # 省略坐标轴、刻度线
+        plt.axis('off')
+        plt.xticks([])
+        plt.yticks([])
+        plt.subplots_adjust(top=1,bottom=0,left=0,right=1,hspace=0,wspace=0)
+        # 根据数组绘制图片
+        plt.imshow(image)
+        self.fig.canvas.draw()
+        
+        # 将图片传给UE
+        img = self.fig.canvas.buffer_rgba()
+        self.texture.texture_set_data(img)
         return
         
     # 设置关键点

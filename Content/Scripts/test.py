@@ -1,5 +1,6 @@
 import os
 import sys
+import array
 path = "E:/MyProject/UE/Python/VirtualStudio/"
 sys.path.insert(0, path)
 from lib.options import * # TODO: 改了lib名字
@@ -73,7 +74,9 @@ class MainComponent:
         image_shape = (720, 1280, 4,)
         image = np.zeros(image_shape)
         image[:,:,0] = 1
-        image[:,:,3] = 0.2
+        image[:,:,3] = 1
+        m = memoryview(image)
+        print(m)
         
         # 清除原有图片
         plt.clf()
@@ -94,7 +97,8 @@ class MainComponent:
         
         # 将图片传给UE
         img = self.fig.canvas.buffer_rgba()
-        
+        sc=self.fig.canvas
+        print(bytes(img)[:100])
         # self.texture.texture_set_data(img)
         return
     

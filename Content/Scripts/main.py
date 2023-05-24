@@ -94,7 +94,7 @@ class MainComponent:
         # frame = np.ndarray((1024, 1024, 3))
         # light = np.ndarray((9, 3))
         
-        light = np.load('E:/MyProject/UE/Python/VirtualStudio/BodyRelight/datas/LIGHT/env_sh.npy')[1]
+        light = np.load('E:/MyProject/UE/Python/VirtualStudio/BodyRelight/datas/LIGHT/new_sh.npy')[0]*8
         frame = np.asarray(frame)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
